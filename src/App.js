@@ -1,6 +1,7 @@
-import React, {useState, useEffect, getState, useRef} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
+import {useCallbackRef} from 'use-callback-ref';
 import Dialog from 'react-bootstrap-dialog'
-import axios from 'axios';
+
 import {
     BrowserRouter as Router,
     Switch,
@@ -9,12 +10,24 @@ import {
     useParams
 } from "react-router-dom";
 import Crossword from '@guardian/react-crossword';
-import {ListGroup, Nav, Navbar, Form, Container, Row, Col, CloseButton, InputGroup, FormControl, Button} from "react-bootstrap";
+import {
+    ListGroup,
+    Nav,
+    Navbar,
+    Form,
+    Container,
+    Row,
+    Col,
+    CloseButton,
+    InputGroup,
+    FormControl,
+    Button
+} from "react-bootstrap";
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 
-const ws = new WebSocket("ws://localhost:5000/ws");
+var ws = null;//new WebSocket(`ws://${window.location.hostname}:5000/ws`);
 
 
 function Sessions(props) {
@@ -110,13 +123,27 @@ function PlaySession() {
     const [board, setBoard] = useState(null);
     const [initialMoves, setInitialMoves] = useState(null);
     const [isLoaded, setIsLoaded] = useState(false);
-    const crosswordRef = useRef(null);
+    const crosswordRef = useCallbackRef(null, node => {
+        if (node !== null) {
+            initialMoves.forEach(move => {
+                let {x, y, value, ...rest} = move;
+                node.setCellValue(x, y, value, false);
+            })
+        }
+    }, [initialMoves]);
 
     async function connectWS() {
         console.log("OnConnect");
         // websocket onopen event listener
         ws.onopen = () => {
             console.log("connected websocket main component");
+            let payload = {
+                'type': 'subscribe',
+                'content': {
+                    'id': id
+                }
+            };
+            ws.send(JSON.stringify(payload))
         };
         ws.onmessage = (event) => {
             const move = JSON.parse(event.data);
@@ -142,14 +169,6 @@ function PlaySession() {
 
             ws.close();
         };
-
-        let payload = {
-            'type': 'subscribe',
-            'content': {
-                'id': id
-            }
-        };
-        ws.send(JSON.stringify(payload))
     }
 
     async function loadBoard() {
@@ -157,6 +176,7 @@ function PlaySession() {
         const data = await responseSession.json();
         setBoard(data['board']);
         setInitialMoves(data['moves']);
+        console.log(initialMoves);
         setIsLoaded(true);
         await connectWS();
     }
@@ -177,15 +197,27 @@ function PlaySession() {
     }, []);
 
 
-
     if (isLoaded) {
-        console.log(board);
-        return <Crossword data={board} ref={crosswordRef} saveGrid={(id, grid) => {}} onMove={onMove}/>;
+        return <Crossword data={board} ref={crosswordRef} saveGrid={(id, grid) => {
+        }} loadGrid={id => {
+        }} onMove={onMove}/>;
     }
     return <div>Loading...</div>;
 }
 
+
+async function setupWebSocket(){
+    const response = await fetch(`/external_url`, {'method': 'GET'});
+    let url = `ws://${await response.text()}/ws`
+    ws = new WebSocket(url);
+    console.log(url);
+}
+
 function App() {
+
+    if (ws === null) {
+        setupWebSocket()
+    }
 
     return (
         <Router>

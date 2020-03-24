@@ -91,6 +91,19 @@ async def subscribe_session(ws, data):
     session.listeners.append(ws)
 
 
+@routes.get("/external_url")
+async def get_ws_url(request):
+    return web.Response(text=EXTERNAL_URL)
+
+
+@routes.post("/external_url")
+async def set_ws_url(request):
+    global EXTERNAL_URL
+    query = await request.post()
+    EXTERNAL_URL = query["url"]
+    return web.HTTPOk()
+
+
 @routes.get('/ws')
 async def websocket(request):
     print("On WS Request")
@@ -122,5 +135,8 @@ app = web.Application()
 app.add_routes(routes)
 
 if __name__ == "__main__":
+    EXTERNAL_URL = None
     sessions = {}
     web.run_app(app, port=5000)
+
+
