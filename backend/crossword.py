@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 from json import loads
 from uuid import uuid1
 from dataclasses import dataclass
+import traceback
 
 
 routes = web.RouteTableDef()
@@ -78,12 +79,16 @@ async def broadcast_move(ws, data):
 
     session = sessions[session_id]
     session.moves.append(move)
-
+    print("BC", session.listeners, ws)
     for ws_listener in session.listeners:
+        print(ws_listener, ws)
         if ws_listener is ws:
             continue
-        await ws_listener.send_json(move)
-
+        try:
+            await ws_listener.send_json(move)
+        except Exception:
+            traceback.print_exc()
+            
 
 async def subscribe_session(ws, data):
     session_id = data['id']
@@ -91,6 +96,7 @@ async def subscribe_session(ws, data):
     session.listeners.append(ws)
 
 
+# Hack to get external URL for websocket use in frontend (proxy doesn't work)
 @routes.get("/external_url")
 async def get_ws_url(request):
     return web.Response(text=EXTERNAL_URL)
@@ -119,6 +125,7 @@ async def websocket(request):
                 await ws.close()
             else:
                 data = loads(msg.data)
+                print(data)
                 msg_type = data['type']
                 msg_content = data['content']
                 if msg_type == 'subscribe':

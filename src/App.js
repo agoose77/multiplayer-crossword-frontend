@@ -51,7 +51,7 @@ function Home() {
     const dialogueRef = useRef(null);
 
     async function loadSessions() {
-        const response_sessions = await fetch('/sessions', {'method': 'GET'});
+        const response_sessions = await fetch('/api/sessions', {'method': 'GET'});
         setSessions(await response_sessions.json());
     }
 
@@ -62,7 +62,7 @@ function Home() {
     async function handleSubmit(event) {
         event.preventDefault();
         const data = new FormData(formRef.current);
-        const response_create = await fetch("/sessions", {
+        const response_create = await fetch("/api/sessions", {
             'method': 'POST',
             body: data
         });
@@ -77,7 +77,7 @@ function Home() {
             actions: [
                 Dialog.CancelAction(),
                 Dialog.OKAction(async () => {
-                    await fetch(`/sessions/${session_id}`, {'method': 'DELETE'});
+                    await fetch(`/api/sessions/${session_id}`, {'method': 'DELETE'});
                     await loadSessions();
                 })
             ],
@@ -133,10 +133,9 @@ function PlaySession() {
     }, [initialMoves]);
 
     async function connectWS() {
-        console.log("OnConnect");
         // websocket onopen event listener
         ws.onopen = () => {
-            console.log("connected websocket main component");
+            console.log("Connected to backend");
             let payload = {
                 'type': 'subscribe',
                 'content': {
@@ -169,10 +168,15 @@ function PlaySession() {
 
             ws.close();
         };
+
+        // In case connected already
+        if (ws.readyState === 1){
+            ws.onopen();
+        }
     }
 
     async function loadBoard() {
-        const responseSession = await fetch(`/sessions/${id}`, {'method': 'GET'});
+        const responseSession = await fetch(`/api/sessions/${id}`, {'method': 'GET'});
         const data = await responseSession.json();
         setBoard(data['board']);
         setInitialMoves(data['moves']);
@@ -207,8 +211,7 @@ function PlaySession() {
 
 
 async function setupWebSocket(){
-    const response = await fetch(`/external_url`, {'method': 'GET'});
-    let url = `ws://${await response.text()}/ws`
+    let url = `ws://${window.location.hostname}:${window.location.port}/api/ws`
     ws = new WebSocket(url);
     console.log(url);
 }
