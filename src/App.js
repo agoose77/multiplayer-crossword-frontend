@@ -1,33 +1,26 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useCallbackRef} from 'use-callback-ref';
 import Dialog from 'react-bootstrap-dialog'
 
-import {
-    BrowserRouter as Router,
-    Switch,
-    Route,
-    Link,
-    useParams
-} from "react-router-dom";
+import {BrowserRouter as Router, Route, Switch, useParams} from "react-router-dom";
 import Crossword from '@guardian/react-crossword';
 import {
-    ListGroup,
-    Nav,
-    Navbar,
-    Form,
-    Container,
-    Row,
-    Col,
+    Button,
     CloseButton,
-    InputGroup,
+    Col,
+    Container,
+    Form,
     FormControl,
-    Button
+    InputGroup,
+    ListGroup,
+    Navbar,
+    Row
 } from "react-bootstrap";
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 
-var ws = null;//new WebSocket(`ws://${window.location.hostname}:5000/ws`);
+const ws = new WebSocket(`ws://${window.location.hostname}:${window.location.port}/api/ws`);
 
 
 function Sessions(props) {
@@ -93,7 +86,7 @@ function Home() {
                 <Form onSubmit={handleSubmit} ref={formRef}>
                     <InputGroup>
                         <FormControl
-                            placeholder="My Game"
+                            placeholder="Game Name"
                             aria-label="Session Name"
                             aria-describedby="session-name"
                             type="text"
@@ -132,47 +125,58 @@ function PlaySession() {
         }
     }, [initialMoves]);
 
-    async function connectWS() {
-        // websocket onopen event listener
-        ws.onopen = () => {
-            console.log("Connected to backend");
-            let payload = {
-                'type': 'subscribe',
-                'content': {
-                    'id': id
-                }
+    function setupWebSocket() {
+        return new Promise((resolve, reject) => {
+            function onConnected() {
+                console.debug("Connected to backend");
+                let payload = {
+                    'type': 'subscribe',
+                    'content': {
+                        'id': id
+                    }
+                };
+                ws.send(JSON.stringify(payload));
+                resolve();
+            }
+
+            // websocket onopen event listener
+            ws.onopen = (event) => {
+                onConnected()
             };
-            ws.send(JSON.stringify(payload))
-        };
-        ws.onmessage = (event) => {
-            const move = JSON.parse(event.data);
-            let {x, y, value, ...rest} = move;
-            console.log(["Received", x, y, value, crosswordRef.current]);
-            crosswordRef.current.setCellValue(x, y, value, false);
-        };
-        // websocket onclose event listener
-        ws.onclose = e => {
-            console.log(
-                'Socket is closed',
-                e.reason
-            );
-        };
 
-        // websocket onerror event listener
-        ws.onerror = err => {
-            console.error(
-                "Socket encountered error: ",
-                err.message,
-                "Closing socket"
-            );
+            ws.onmessage = (event) => {
+                const move = JSON.parse(event.data);
+                let {x, y, value, ...rest} = move;
+                console.debug(["Received", x, y, value, crosswordRef.current]);
+                crosswordRef.current.setCellValue(x, y, value, false);
+            };
 
-            ws.close();
-        };
+            // websocket onclose event listener
+            ws.onclose = e => {
+                console.debug(
+                    'Socket is closed',
+                    e.reason
+                );
+            };
 
-        // In case connected already
-        if (ws.readyState === 1){
-            ws.onopen();
-        }
+            // websocket onerror event listener
+            ws.onerror = err => {
+                console.error(
+                    "Socket encountered error: ",
+                    err.message,
+                    "Closing socket"
+                );
+
+                ws.close();
+                reject();
+            };
+
+            // In case connected already
+            if (ws.readyState === 1) {
+                onConnected();
+            }
+
+        });
     }
 
     async function loadBoard() {
@@ -180,9 +184,8 @@ function PlaySession() {
         const data = await responseSession.json();
         setBoard(data['board']);
         setInitialMoves(data['moves']);
-        console.log(initialMoves);
+        await setupWebSocket(setIsLoaded);
         setIsLoaded(true);
-        await connectWS();
     }
 
     function onMove(move) {
@@ -210,18 +213,7 @@ function PlaySession() {
 }
 
 
-async function setupWebSocket(){
-    let url = `ws://${window.location.hostname}:${window.location.port}/api/ws`
-    ws = new WebSocket(url);
-    console.log(url);
-}
-
 function App() {
-
-    if (ws === null) {
-        setupWebSocket()
-    }
-
     return (
         <Router>
             <div>

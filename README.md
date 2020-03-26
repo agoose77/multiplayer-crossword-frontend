@@ -3,22 +3,52 @@ A stupid implementation of multiplayer for the Guardian react-crossword.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Production
+This project uses NGINX to unify the backend endpoint under the same endpoint as the static files using a reverse-proxy. This is used to facilitate the `proxy` feature during development.
+
+Use `npm run start` / `$PWD/production/launch-production.sh`, or perform the following steps:
+1. `cd` to the git root directory
+1. Build the package using `npm build`
+1. Start the backend on `localhost:5000` using `npm run start-backend` (or `python3 $PWD/backend/crossword.py`)
+1. Run NGINX to unify the backend under the static endpoint 
+  `sudo docker run --rm --name crossword -v $PWD/production/nginx:/etc/nginx:ro -v $PWD/build:/usr/share/nginx/html --network=host -nginx`
+1. Connect to `localhost:8000`
+1. [Optional] One can use `ngrok` to expose the server to an external URL, with `ngrok start -config=.$PWD/production/ngrok.conf`. 
+
+
+## Development
+In development mode, do not use nginx. The backend is proxied by `src/setupProxy.js`
+
+1. `cd` to the git root directory
+1. Start the backend on `localhost:5000` using `npm run start-backend` (or `python3 ./backend/crossword.py`)
+1. Start the frontend with `npm start`
+
 ## Available Scripts
 
 In the project directory, you can run:
 
 ### `npm start`
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+Launches the backend, NGINX, and starts ngrok session. 
 
 ### `npm test`
 
 Launches the test runner in the interactive watch mode.<br />
 See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+
+### `npm run start-dev-frontend`
+
+Runs the frontend in the development mode.<br />
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+
+The page will reload if you make edits.<br />
+You will also see any lint errors in the console.
+
+### `npm run start-backend`
+
+Run the backend python server.  
+
+Open [http://localhost:5000](http://localhost:5000) to view it in the browser.
 
 ### `npm run build`
 
