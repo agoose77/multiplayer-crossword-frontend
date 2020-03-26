@@ -12,7 +12,7 @@ fi
 
 # Run NGINX to expose backend under /api/ route and serve frontend content from build/
 python3 "$PWD/backend/crossword.py" &
-sudo docker run --rm --name crossword -v "$PWD/production/nginx/:/etc/nginx:ro" -v "$PWD/build:/usr/share/nginx/html" --network=host nginx &
+docker run --rm --name crossword -v "$PWD/production/nginx/:/etc/nginx:ro" -v "$PWD/build:/usr/share/nginx/html" --network=host nginx &
 
 # Run ngrok, determine external URL for backend, and store on backend
 ngrok start -log=stdout -config="$PWD/production/ngrok.conf" nginx > /tmp/ngrok.log &
