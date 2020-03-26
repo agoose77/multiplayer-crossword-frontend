@@ -21,7 +21,7 @@ In development mode, do not use nginx. The backend is proxied by `src/setupProxy
 
 1. `cd` to the git root directory
 1. Start the backend on `localhost:5000` using `npm run start-backend` (or `python3 ./backend/crossword.py`)
-1. Start the frontend with `npm start`
+1. Start the frontend with `npm start-dev-frontend`
 
 ## Available Scripts
 
