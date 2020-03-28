@@ -6,9 +6,8 @@ from uuid import uuid1
 from dataclasses import dataclass
 import traceback
 
-
 routes = web.RouteTableDef()
-
+WEB_SOCKET_HEARTBEAT = 20 # seconds
 
 @dataclass
 class Session:
@@ -19,7 +18,12 @@ class Session:
     moves: []
 
     def to_json(self):
-        return {"name": self.name, "id": self.id, "board": self.board, 'moves': self.moves}
+        return {
+            "name": self.name,
+            "id": self.id,
+            "board": self.board,
+            "moves": self.moves,
+        }
 
 
 @routes.get("/sessions")
@@ -30,7 +34,7 @@ async def sessions(request):
 
 @routes.get("/sessions/{id}")
 async def sessions(request):
-    session_id = request.match_info['id']
+    session_id = request.match_info["id"]
     session = sessions[session_id]
     return web.json_response(session.to_json())
 
@@ -48,12 +52,12 @@ async def sessions(request):
     session_id = str(uuid1())
     session = Session(session_name, session_id, [], crossword, [])
     sessions[session_id] = session
-    return web.HTTPCreated(headers={'Location': f'/sessions/{session_id}'})
+    return web.HTTPCreated(headers={"Location": f"/sessions/{session_id}"})
 
 
 @routes.delete("/sessions/{id}")
 async def sessions(request):
-    session_id = request.match_info['id']
+    session_id = request.match_info["id"]
     try:
         del sessions[session_id]
     except KeyError:
@@ -73,54 +77,50 @@ async def load_crossword(index: int) -> dict:
     return loads(div.get("data-crossword-data"))
 
 
-async def broadcast_move(ws, data):
-    session_id = data['id']
-    move = data['move']
+async def broadcast_move_to_session(ws, data):
+    session_id = data["id"]
+    move = data["move"]
 
     session = sessions[session_id]
     session.moves.append(move)
-    print("BC", session.listeners, ws)
-    for ws_listener in session.listeners:
-        print(ws_listener, ws)
-        if ws_listener is ws:
-            continue
-        try:
-            await ws_listener.send_json(move)
-        except Exception:
-            traceback.print_exc()
-            
+    print([id(w) for w in session.listeners], id(ws))
+    for ws_listener in session.listeners.copy():
+        if not ws_listener is ws:
+            try:
+                await ws_listener.send_json(move)
+            except:
+                traceback.print_exc()
+                # Remove bad websocket
+                session.listeners.remove(ws)
+                print(f"Removing bad websocket {id(ws)}")
 
-async def subscribe_session(ws, data):
-    session_id = data['id']
+async def subscribe_to_session(ws, data):
+    session_id = data["id"]
     session = sessions[session_id]
     session.listeners.append(ws)
 
 
-@routes.get('/ws')
-async def websocket(request):
+@routes.get("/ws")
+async def web_socket_server(request):
     print("On WS Request")
-    ws = web.WebSocketResponse()
+    ws = web.WebSocketResponse(heartbeat=WEB_SOCKET_HEARTBEAT)
     await ws.prepare(request)
 
     async for msg in ws:
         if msg.type == WSMsgType.ERROR:
-            print('ws connection closed with exception %s' %
-                  ws.exception())
+            print("ws connection closed with exception %s" % ws.exception())
+
         elif msg.type == WSMsgType.TEXT:
-            if msg.data == 'close':
-                await ws.close()
-            else:
-                data = loads(msg.data)
-                print(data)
-                msg_type = data['type']
-                msg_content = data['content']
-                if msg_type == 'subscribe':
-                    await subscribe_session(ws, msg_content)
-                elif msg_type == 'move':
-                    await broadcast_move(ws, msg_content)
+            data = loads(msg.data)
+            print(data, 'DATA')
+            msg_type = data["type"]
+            msg_content = data["content"]
+            if msg_type == "subscribe":
+                await subscribe_to_session(ws, msg_content)
+            elif msg_type == "move":
+                await broadcast_move_to_session(ws, msg_content)
 
-    print('websocket connection closed')
-
+    print("websocket connection closed")
     return ws
 
 
@@ -131,5 +131,3 @@ if __name__ == "__main__":
     EXTERNAL_URL = None
     sessions = {}
     web.run_app(app, port=5000)
-
-

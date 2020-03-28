@@ -10,28 +10,40 @@ if [[ -z "$INIT_CWD" ]]; then
   exit 1
 fi
 
+PIDS=()
+
 # Run NGINX to expose backend under /api/ route and serve frontend content from build/
 python3 "$PWD/backend/crossword.py" &
 docker run --rm --name crossword -v "$PWD/production/nginx/:/etc/nginx:ro" -v "$PWD/build:/usr/share/nginx/html" --network=host nginx &
+PIDS+=($!)
 
 # Run ngrok, determine external URL for backend, and store on backend
 ngrok start -log=stdout -config="$PWD/production/ngrok.conf" nginx > /tmp/ngrok.log &
+PIDS+=($!)
 
-# Search for server address
-while true; do
-  SERVER_ADDR=$(cat /tmp/ngrok.log | sed -nE 's/.*addr=[^ ]+8000 url=([^ ]+).*/\1/p')
-  if [[ -n "$SERVER_ADDR" ]]; then
-    break
-  fi
-  sleep 0.1
+copy_server_info() {
+	# Search for server address
+	while true; do
+	  SERVER_ADDR=$(cat /tmp/ngrok.log | sed -nE 's/.*addr=[^ ]+8000 url=([^ ]+).*/\1/p')
+	  if [[ -n "$SERVER_ADDR" ]]; then
+	    break
+	  fi
+	  sleep 0.1
+	done
+
+	# Output server info and copy to clip
+	copy_result="didn't copy"
+	if command -v xclip; then
+	  echo $SERVER_ADDR | xclip -sel clip
+	  copy_result="copied"
+	fi
+	echo "Access server on $SERVER_ADDR, $copy_result to clipboard"
+}
+
+copy_server_info&
+PIDS+=($!)
+
+# Exit if any commands failed
+for pid in PIDS; do
+  wait -n || PID=$? && echo "Program failed, exiting..." && exit $?
 done
-
-# Output server info and copy to clip
-copy_result="didn't copy"
-if command -v xclip; then
-  echo $SERVER_ADDR | xclip -sel clip
-  copy_result="copied"
-fi
-echo "Access server on $SERVER_ADDR, $copy_result to clipboard"
-
-wait

@@ -20,9 +20,6 @@ import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 
-const ws = new WebSocket(`ws://${window.location.hostname}:${window.location.port}/api/ws`);
-
-
 function Sessions(props) {
     const sessions = props.sessions;
     return (
@@ -115,77 +112,74 @@ function PlaySession() {
     let {id} = useParams();
     const [board, setBoard] = useState(null);
     const [initialMoves, setInitialMoves] = useState(null);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [websocket, setWebsocket] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
+
+    // When the board is rendered
     const crosswordRef = useCallbackRef(null, node => {
-        if (node !== null) {
-            initialMoves.forEach(move => {
-                let {x, y, value, ...rest} = move;
-                node.setCellValue(x, y, value, false);
-            })
+        if (node === null) {
+            return;
         }
+        // Fast-forward board to current state
+        initialMoves.forEach(move => {
+            let {x, y, value, ...rest} = move;
+            node.setCellValue(x, y, value, false);
+        })
+
     }, [initialMoves]);
 
-    function setupWebSocket() {
-        return new Promise((resolve, reject) => {
-            function onConnected() {
-                console.debug("Connected to backend");
-                let payload = {
-                    'type': 'subscribe',
-                    'content': {
-                        'id': id
-                    }
-                };
-                ws.send(JSON.stringify(payload));
-                resolve();
-            }
+    function setupConnection() {
+        let ws = new WebSocket(`ws://${window.location.hostname}:${window.location.port}/api/ws`);
+        setWebsocket(ws);
 
-            // websocket onopen event listener
-            ws.onopen = (event) => {
-                onConnected()
+        ws.onopen = (event) => {
+            console.debug("Connected to backend");
+            let payload = {
+                'type': 'subscribe',
+                'content': {
+                    'id': id
+                }
             };
+            ws.send(JSON.stringify(payload));
+            setIsConnected(true);
+        };
 
-            ws.onmessage = (event) => {
-                const move = JSON.parse(event.data);
-                let {x, y, value, ...rest} = move;
-                console.debug(["Received", x, y, value, crosswordRef.current]);
-                crosswordRef.current.setCellValue(x, y, value, false);
-            };
+        ws.onmessage = (event) => {
+            const move = JSON.parse(event.data);
+            let {x, y, value, ...rest} = move;
+            console.debug(["Received", x, y, value, crosswordRef.current]);
+            crosswordRef.current.setCellValue(x, y, value, false);
+        };
 
-            // websocket onclose event listener
-            ws.onclose = e => {
-                console.debug(
-                    'Socket is closed',
-                    e.reason
-                );
-            };
+        // websocket onclose event listener
+        ws.onclose = e => {
+            console.debug(
+                'Socket is closed',
+                e.reason
+            );
+        };
 
-            // websocket onerror event listener
-            ws.onerror = err => {
-                console.error(
-                    "Socket encountered error: ",
-                    err.message,
-                    "Closing socket"
-                );
+        // websocket onerror event listener
+        ws.onerror = err => {
+            console.error(
+                "Socket encountered error: ",
+                err.message,
+                "Closing socket"
+            );
 
-                ws.close();
-                reject();
-            };
+            ws.close();
+        };
 
-            // In case connected already
-            if (ws.readyState === 1) {
-                onConnected();
-            }
-
-        });
     }
 
-    async function loadBoard() {
+    // Load game board
+    async function loadSession() {
         const responseSession = await fetch(`/api/sessions/${id}`, {'method': 'GET'});
         const data = await responseSession.json();
+        // Set game board
         setBoard(data['board']);
+        // Set game state
         setInitialMoves(data['moves']);
-        await setupWebSocket(setIsLoaded);
-        setIsLoaded(true);
     }
 
     function onMove(move) {
@@ -196,18 +190,25 @@ function PlaySession() {
                 'move': move
             }
         };
-        ws.send(JSON.stringify(payload))
+        websocket.send(JSON.stringify(payload))
     }
 
     useEffect(() => {
-        loadBoard();
+        async function _() {
+            await loadSession();
+            setupConnection();
+        }
+
+        _();
     }, []);
 
 
-    if (isLoaded) {
-        return <Crossword data={board} ref={crosswordRef} saveGrid={(id, grid) => {
-        }} loadGrid={id => {
-        }} onMove={onMove}/>;
+    if (isConnected) {
+        return <Crossword data={board}
+                          ref={crosswordRef}
+                          saveGrid={(id, grid) => {}}
+                          loadGrid={id => {}}
+                          onMove={onMove}/>;
     }
     return <div>Loading...</div>;
 }
