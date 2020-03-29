@@ -44,6 +44,6 @@ copy_server_info&
 PIDS+=($!)
 
 # Exit if any commands failed
-for pid in PIDS; do
-  wait -n || PID=$? && echo "Program failed, exiting..." && exit $?
+for pid in "${PIDS[@]}"; do
+  wait -n "${PIDS[@]}" || { RETCODE=$?; echo "Program failed: $RETCODE, exiting..."; exit $? ;}
 done
