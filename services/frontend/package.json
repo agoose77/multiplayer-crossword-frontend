@@ -20,9 +20,7 @@
     "use-callback-ref": "^1.2.1"
   },
   "scripts": {
-    "start": "production/launch-production.sh",
-    "start-dev-frontend": "react-scripts start",
-    "start-backend": "cd backend && python crossword.py",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
