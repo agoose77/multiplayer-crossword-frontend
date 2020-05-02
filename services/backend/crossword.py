@@ -5,6 +5,7 @@ from json import loads
 from uuid import uuid1
 from dataclasses import dataclass
 import traceback
+import argparse
 
 routes = web.RouteTableDef()
 WEB_SOCKET_HEARTBEAT = 20 # seconds
@@ -127,7 +128,11 @@ async def web_socket_server(request):
 app = web.Application()
 app.add_routes(routes)
 
+
 if __name__ == "__main__":
-    EXTERNAL_URL = None
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--port', default=5000)
+    args = parser.parse_args()
+
     sessions = {}
-    web.run_app(app, port=5000)
+    web.run_app(app, port=args.port)

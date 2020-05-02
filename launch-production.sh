@@ -4,21 +4,14 @@
 trap "exit" INT TERM ERR
 trap "kill 0" EXIT
 
-# Check NPM is running this script
-if [[ -z "$INIT_CWD" ]]; then
-  echo "This script should be run by npm"
-  exit 1
-fi
-
 PIDS=()
 
-# Run NGINX to expose backend under /api/ route and serve frontend content from build/
-python3 "$PWD/backend/crossword.py" &
-docker run --rm --name crossword -v "$PWD/production/nginx/:/etc/nginx:ro" -v "$PWD/build:/usr/share/nginx/html" --network=host nginx &
+# Launch services
+docker-compose up &
 PIDS+=($!)
 
 # Run ngrok, determine external URL for backend, and store on backend
-ngrok start -log=stdout -config="$PWD/production/ngrok.conf" nginx > /tmp/ngrok.log &
+ngrok start -log=stdout -config="$PWD/ngrok.conf" nginx > /tmp/ngrok.log &
 PIDS+=($!)
 
 copy_server_info() {
@@ -33,7 +26,7 @@ copy_server_info() {
 
 	# Output server info and copy to clip
 	copy_result="didn't copy"
-	if command -v xclip; then
+	if command -v xclip > /dev/null; then
 	  echo $SERVER_ADDR | xclip -sel clip
 	  copy_result="copied"
 	fi
