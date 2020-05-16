@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.3'
 
 services:
   backend:
@@ -13,5 +13,5 @@ services:
     volumes:
       - ./services/frontend/:/usr/src/app/
     ports:
-      - 8000:8000
+      - 8080:8080
     

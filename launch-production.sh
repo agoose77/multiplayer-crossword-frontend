@@ -17,7 +17,7 @@ PIDS+=($!)
 copy_server_info() {
 	# Search for server address
 	while true; do
-	  SERVER_ADDR=$(cat /tmp/ngrok.log | sed -nE 's/.*addr=[^ ]+8000 url=([^ ]+).*/\1/p')
+	  SERVER_ADDR=$(cat /tmp/ngrok.log | sed -nE 's/.*addr=[^ ]+8080 url=([^ ]+).*/\1/p')
 	  if [[ -n "$SERVER_ADDR" ]]; then
 	    break
 	  fi
