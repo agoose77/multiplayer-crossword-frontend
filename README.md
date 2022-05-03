@@ -1,6 +1,8 @@
 # guardian-crossword-multiplayer
 A stupid implementation of multiplayer for the Guardian react-crossword.
 
+This code is _awful_ - it's hacky because I'd not written any React at this point, and I justed wanted to play crosswords with my family over lockdown.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
